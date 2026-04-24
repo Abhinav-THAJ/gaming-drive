@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import {
-  watchAllActiveSessions, watchSystems, getSystems, getAllUsers, getBookingsForDate,
+  watchAllActiveSessions, watchSystems, getSystems, getAllUsers, watchBookingsForDate,
   startSession, endSession, extendSession, blockSystem, updateBookingStatus,
   System, Booking, Session, User
 } from '@/lib/db';
@@ -54,8 +54,9 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    getBookingsForDate(selectedDate).then(setBookings);
+    const unsub = watchBookingsForDate(selectedDate, setBookings);
     getAllUsers().then(setUsers);
+    return unsub;
   }, [selectedDate]);
 
   useGSAP(() => {
