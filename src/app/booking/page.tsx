@@ -72,7 +72,7 @@ export default function BookingPage() {
         date: selectedDate,
         startSlot: selectedSlot,
         endSlot,
-        status: 'pending' as const,
+        status: 'confirmed' as const,
         paymentAmount: getSystemPrice(selectedSystem),
       };
 

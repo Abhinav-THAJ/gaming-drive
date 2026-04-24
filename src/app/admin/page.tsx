@@ -157,7 +157,14 @@ export default function AdminDashboard() {
                       )} />
                       <div>
                         <p className="text-white font-bold">{system.name}</p>
-                        <p className="text-neutral-500 text-xs uppercase">{system.type} · ₹{system.pricePerHour}/hr</p>
+                        <p className="text-neutral-500 text-xs uppercase">
+                          {system.type} · ₹{system.pricePerHour}/hr
+                          {(sysSession || sysBooking) && (
+                            <span className="ml-2 text-[#E50914] font-bold">
+                              · {sysSession ? confirmedBookings.find(b => b.id === sysSession.bookingId)?.userName : sysBooking?.userName}
+                            </span>
+                          )}
+                        </p>
                       </div>
                     </div>
 
@@ -173,19 +180,19 @@ export default function AdminDashboard() {
                           <button onClick={() => handleExtend(sysSession.bookingId, system.id)}
                             disabled={loading === `ext-${sysSession.bookingId}`}
                             className="px-4 py-2 text-xs font-bold uppercase tracking-widest border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors flex items-center gap-1">
-                            {loading === `ext-${sysSession.bookingId}` ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Extend
+                            {loading === `ext-${sysSession.bookingId}` ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />} Extend 60min
                           </button>
                           <button onClick={() => handleStop(sysSession.bookingId, system.id)}
                             disabled={loading === sysSession.bookingId}
                             className="px-4 py-2 text-xs font-bold uppercase tracking-widest border border-[#E50914]/30 text-[#E50914] hover:bg-[#E50914]/10 transition-colors flex items-center gap-1">
-                            {loading === sysSession.bookingId ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />} Stop
+                            {loading === sysSession.bookingId ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />} End Session
                           </button>
                         </>
                       ) : sysBooking ? (
                         <button onClick={() => handleStart(sysBooking)}
                           disabled={loading === sysBooking.id}
                           className="px-4 py-2 text-xs font-bold uppercase tracking-widest border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-1">
-                          {loading === sysBooking.id ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Start
+                          {loading === sysBooking.id ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Start Session
                         </button>
                       ) : null}
 
