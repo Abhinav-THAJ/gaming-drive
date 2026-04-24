@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { watchSystems, watchBookingsForDate, System, Booking } from '@/lib/db';
+import { watchSystems, watchBookingsForDate, System, Booking, createBookingAtomically } from '@/lib/db';
 import { format, addHours } from 'date-fns';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -62,8 +62,22 @@ export default function BookingPage() {
     try {
       const endSlot = format(addHours(new Date(`${selectedDate}T${selectedSlot}:00`), 1), 'HH:mm');
 
-      // Simulate network request for booking
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const bookingData = {
+        userId: user.uid,
+        userName: profile.name || user.displayName || 'Player',
+        userEmail: user.email || '',
+        systemId: selectedSystem.id,
+        systemName: selectedSystem.name,
+        systemType: selectedSystem.type,
+        date: selectedDate,
+        startSlot: selectedSlot,
+        endSlot,
+        status: 'pending' as const,
+        paymentAmount: getSystemPrice(selectedSystem),
+      };
+
+      // Create booking atomically in Firestore (or local storage mock)
+      await createBookingAtomically(bookingData);
       
       toast.success('Booking confirmed! See you at the arena.');
       setSelectedSlot(null);

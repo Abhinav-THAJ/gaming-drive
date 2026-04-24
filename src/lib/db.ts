@@ -92,7 +92,7 @@ export function watchSystems(cb: (systems: System[]) => void) {
 
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 
-const MOCK_BOOKINGS: Booking[] = [
+const INITIAL_MOCK_BOOKINGS: Booking[] = [
   {
     id: 'bkg1', userId: 'user1', userName: 'Player 1', userEmail: 'p1@test.com',
     systemId: 'pc2', systemName: 'PC Station 02', systemType: 'PC',
@@ -109,9 +109,24 @@ const MOCK_BOOKINGS: Booking[] = [
   }
 ];
 
+function getMockBookings(): Booking[] {
+  if (typeof window === 'undefined') return INITIAL_MOCK_BOOKINGS;
+  const stored = localStorage.getItem('mockBookings');
+  if (stored) return JSON.parse(stored);
+  localStorage.setItem('mockBookings', JSON.stringify(INITIAL_MOCK_BOOKINGS));
+  return INITIAL_MOCK_BOOKINGS;
+}
+
+function addMockBooking(booking: Booking) {
+  const current = getMockBookings();
+  const updated = [booking, ...current];
+  localStorage.setItem('mockBookings', JSON.stringify(updated));
+  window.dispatchEvent(new Event('storage'));
+}
+
 export async function getBookingsForDate(date: string): Promise<Booking[]> {
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_firebase_api_key') {
-    return MOCK_BOOKINGS.filter(b => b.date === date);
+    return getMockBookings().filter(b => b.date === date);
   }
   const q = query(
     collection(db, 'bookings'),
@@ -124,8 +139,10 @@ export async function getBookingsForDate(date: string): Promise<Booking[]> {
 
 export function watchBookingsForDate(date: string, cb: (bookings: Booking[]) => void) {
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_firebase_api_key') {
-    cb(MOCK_BOOKINGS.filter(b => b.date === date));
-    return () => {};
+    const updateCb = () => cb(getMockBookings().filter(b => b.date === date));
+    updateCb(); // initial call
+    window.addEventListener('storage', updateCb);
+    return () => window.removeEventListener('storage', updateCb);
   }
   const q = query(
     collection(db, 'bookings'),
@@ -139,8 +156,10 @@ export function watchBookingsForDate(date: string, cb: (bookings: Booking[]) => 
 
 export function watchUserBookings(userId: string, cb: (bookings: Booking[]) => void) {
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_firebase_api_key') {
-    cb(MOCK_BOOKINGS.filter(b => b.userId === userId));
-    return () => {};
+    const updateCb = () => cb(getMockBookings().filter(b => b.userId === userId));
+    updateCb();
+    window.addEventListener('storage', updateCb);
+    return () => window.removeEventListener('storage', updateCb);
   }
   const q = query(
     collection(db, 'bookings'),
@@ -153,8 +172,17 @@ export function watchUserBookings(userId: string, cb: (bookings: Booking[]) => v
   });
 }
 
-// Atomic booking — prevents double booking with a transaction
 export async function createBookingAtomically(booking: Omit<Booking, 'id' | 'createdAt'>) {
+  if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_firebase_api_key') {
+    const newBooking: Booking = {
+      ...booking,
+      id: `mock_bkg_${Date.now()}`,
+      createdAt: null as any
+    };
+    addMockBooking(newBooking);
+    return newBooking.id;
+  }
+
   return runTransaction(db, async (tx) => {
     // Check if this slot is already taken
     const conflictQ = query(
@@ -273,10 +301,27 @@ export async function blockSystem(systemId: string, blocked: boolean) {
 
 export function watchAllActiveSessions(cb: (sessions: Record<string, Session>) => void) {
   if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'your_firebase_api_key') {
-    cb({
-      'bkg1': { bookingId: 'bkg1', userId: 'user1', systemId: 'pc2', startTime: Date.now() - 30 * 60000, endTime: Date.now() + 30 * 60000, isActive: true, extendedBy: 0 }
-    });
-    return () => {};
+    const updateCb = () => {
+      // Create mock sessions from all pending/active bookings
+      const bookings = getMockBookings();
+      const mockSessions: Record<string, Session> = {};
+      bookings.forEach(b => {
+        // If it's today and slot has passed or is close, make it an active session
+        mockSessions[b.id] = {
+          bookingId: b.id,
+          userId: b.userId,
+          systemId: b.systemId,
+          startTime: Date.now() - 5 * 60000,
+          endTime: Date.now() + 55 * 60000,
+          isActive: true,
+          extendedBy: 0
+        };
+      });
+      cb(mockSessions);
+    };
+    updateCb();
+    window.addEventListener('storage', updateCb);
+    return () => window.removeEventListener('storage', updateCb);
   }
   const r = ref(rtdb, 'sessions');
   const handler = onValue(r, (snap) => {
